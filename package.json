@@ -1,6 +1,26 @@
 {
   "name": "zig-build",
   "version": "0.1.0",
+  "description": "Node.js native addon build and cross-compile library using Zig",
+  "license": "MIT",
+  "contributors": [
+    "Raphaël Thériault <raphael.theriault@solarwinds.com>"
+  ],
+  "repository": "https://github.com/solarwindscloud/zig-build.git",
+  "homepage": "https://github.com/solarwindscloud/zig-build#readme",
+  "bugs": "https://github.com/solarwindscloud/zig-build/issues",
+  "keywords": [
+    "native",
+    "addon",
+    "bindings",
+    "napi",
+    "node-api",
+    "c",
+    "c++",
+    "zig",
+    "build",
+    "cross"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
