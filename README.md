@@ -9,7 +9,7 @@ Node.js native addon build and cross-compile library using Zig
   - [Custom glibc version](#custom-glibc-version)
 - [Caveats](#caveats)
 - [Contributing](#contributing)
-- [License](#license)
+- [License](./LICENSE)
 
 `zig-build` provides an interface for building native C/C++ Node-API addons or any native code. Unlike `node-gyp` and `cmake-js`, it is not a wrapper around a build system and directly calls the compiler. It doesn't depend on the system compiler and instead downloads a copy of Zig and uses its [Clang wrapper](https://andrewkelley.me/post/zig-cc-powerful-drop-in-replacement-gcc-clang.html), and benefits from its many features.
 
