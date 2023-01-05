@@ -1,9 +1,15 @@
+const path = require("node:path")
+const fs = require("node:fs")
+
 const globals = require("globals")
 const prettier = require("eslint-config-prettier")
 const typescriptParser = require("@typescript-eslint/parser")
 const typescriptPlugin = require("@typescript-eslint/eslint-plugin")
 const tsdocPlugin = require("eslint-plugin-tsdoc")
 const importsPlugin = require("eslint-plugin-simple-import-sort")
+const headerPlugin = require("eslint-plugin-header")
+
+const license = fs.readFileSync(path.join(__dirname, "LICENSE"), "utf8")
 
 const mapRules = (rules, oldKey = "", newKey = "") =>
   Object.fromEntries(
@@ -55,6 +61,13 @@ module.exports = [
       ],
       "tsdoc/syntax": "warn",
       "imports/imports": "warn",
+    },
+  },
+  {
+    files: ["src/**"],
+    plugins: { header: headerPlugin },
+    rules: {
+      "header/header": ["error", "block", `\n${license.trim()}\n`],
     },
   },
   { rules: prettier.rules },

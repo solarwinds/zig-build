@@ -1,3 +1,25 @@
+/*
+© 2023 SolarWinds Worldwide, LLC. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 import * as process from "node:process"
 
 import { fetchDeps } from "./deps"
@@ -25,7 +47,7 @@ export type TargetTriple =
   | "aarch64-windows"
   | "x86-windows"
 
-type OutputType = "bin" | "static" | "shared"
+type OutputType = "bin" | "shared" | "static"
 type OutputMode = "debug" | "fast" | "small"
 
 type CStd =
@@ -63,8 +85,8 @@ interface BaseTarget {
   cpu?: string
   /** Output file */
   output: string
-  /** Output file type (binary executable, dynamic library or static library) */
-  type: OutputType
+  /** Output file type (binary executable, shared library (default) or static library) */
+  type?: OutputType
   /** Optimisation mode (debug, fast (default) or small) */
   mode?: OutputMode
   /** Source files to compile into the output */
@@ -86,7 +108,7 @@ interface BaseTarget {
   defines?: Record<string, boolean | string | number>
   /** C/C++ standard */
   std?: Std
-  /** Enable or disable C++ exceptions */
+  /** Optionally disable C++ exceptions */
   exceptions?: boolean
   /** Compiler flags */
   cflags?: string[]
@@ -133,10 +155,12 @@ function buildOne(
     triple += `.${target.glibc}`
   }
 
-  // base flags for c++ compilation, always the same
+  const lang = (target.std ?? "++").includes("++") ? "c++" : "cc"
+
+  // base flags for c/++ compilation, always the same
   // use baseline instruction set for the target by default
   const flags: string[] = [
-    "c++",
+    lang,
     "-target",
     triple,
     `-mcpu=${target.cpu ?? "baseline"}`,
@@ -144,7 +168,7 @@ function buildOne(
     target.output,
   ]
 
-  switch (target.type) {
+  switch (target.type ?? "shared") {
     case "bin":
     case "static": {
       flags.push("-static")
@@ -243,7 +267,7 @@ function buildOne(
   return exec(zig, flags, { cwd, log })
 }
 
-export default async function build(
+export async function build(
   targets: Record<string, Target>,
   cwd?: string,
 ): Promise<void> {
@@ -253,3 +277,4 @@ export default async function build(
   )
   await Promise.all(tasks)
 }
+export default build
