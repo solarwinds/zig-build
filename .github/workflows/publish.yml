@@ -26,7 +26,7 @@ jobs:
       - run: npm run build
 
       - run: npm version ${{ inputs.version }}
-      - run: git push origin main --follow-tags --force-with-lease
+      - run: git push origin main --follow-tags
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
