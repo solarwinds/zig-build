@@ -1,6 +1,6 @@
 {
   "name": "zig-build",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Node.js native addon build and cross-compile library using Zig",
   "license": "MIT",
   "contributors": [
