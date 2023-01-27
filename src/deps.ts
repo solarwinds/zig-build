@@ -29,14 +29,12 @@ import * as path from "node:path"
 import { type Logger, makeLogger } from "./log"
 import { exec } from "./proc"
 
-const ZIG_VERSION = "0.10.0"
+const ZIG_VERSION = "0.10.1"
 const ZIGS: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> =
   {
     linux: {
       x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz`,
-      ia32: `https://ziglang.org/download/${ZIG_VERSION}/zig-linux-i386-${ZIG_VERSION}.tar.xz`,
       arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-linux-aarch64-${ZIG_VERSION}.tar.xz`,
-      arm: `https://ziglang.org/download/${ZIG_VERSION}/zig-linux-armv7a-${ZIG_VERSION}.tar.xz`,
     },
     darwin: {
       x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-macos-x86_64-${ZIG_VERSION}.tar.xz`,
@@ -45,9 +43,6 @@ const ZIGS: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> =
     win32: {
       x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-windows-x86_64-${ZIG_VERSION}.zip`,
       arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-windows-aarch64-${ZIG_VERSION}.zip`,
-    },
-    freebsd: {
-      x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-freebsd-x86_64-${ZIG_VERSION}.tar.xz`,
     },
   }
 
