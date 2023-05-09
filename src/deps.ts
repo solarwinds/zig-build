@@ -50,15 +50,6 @@ const DOWNLOAD_DIR = path.join(os.homedir(), ".zig-build")
 const NODE_DIR = path.join(DOWNLOAD_DIR, "node")
 const ZIG_DIR = path.join(DOWNLOAD_DIR, "zig", ZIG_VERSION)
 
-interface NodeReport {
-  header: {
-    nodejsVersion: string
-    release: {
-      headersUrl: string
-    }
-  }
-}
-
 const get = (url: string, options: http.RequestOptions & { log: Logger }) =>
   new Promise<IncomingMessage>((res, rej) => {
     options.log(`fetching '${url}'`)
@@ -77,21 +68,21 @@ const exists = (path: string) =>
     .then(() => true)
     .catch(() => false)
 
-async function fetchNodeHeaders() {
+async function fetchNodeHeaders(version?: string) {
   // 40 is a green ansii256 colour code
   const log = makeLogger("node", 40)
 
-  const report = process.report?.getReport() as unknown as NodeReport
-  const version = report.header.nodejsVersion
+  version ??= process.versions.node
+  const vversion = `v${version}`
 
-  const headersDir = path.join(NODE_DIR, version)
+  const headersDir = path.join(NODE_DIR, vversion)
   const includePath = path.join(headersDir, "include", "node")
   log(`checking for node headers at '${includePath}'`)
   if (await exists(includePath)) {
     return includePath
   }
 
-  const headersUrl = report.header.release.headersUrl
+  const headersUrl = `https://nodejs.org/download/release/${vversion}/node-${vversion}-headers.tar.gz`
   const headersArchive = await get(headersUrl, { log })
   await fs.mkdir(headersDir, { recursive: true })
   // windows 10 provides bsdtar which should ignore the z flag if a zip is passed
@@ -133,10 +124,19 @@ async function fetchZig() {
   return binaryPath
 }
 
-export async function fetchDeps(): Promise<
-  [node: string, zig: string, napi: string | null]
+export async function fetchDeps(
+  nodeVersions: Set<string | undefined>,
+): Promise<
+  [node: Map<string | undefined, string>, zig: string, napi: string | null]
 > {
-  const [node, zig] = await Promise.all([fetchNodeHeaders(), fetchZig()])
+  const node = new Map(
+    await Promise.all(
+      [...nodeVersions].map(
+        async (v) => [v, await fetchNodeHeaders(v)] as const,
+      ),
+    ),
+  )
+  const zig = await fetchZig()
   // if node-addon-api is in the dependency tree grab its include path
   // and strip the surrounding quotes
   const napi = await import("node-addon-api")

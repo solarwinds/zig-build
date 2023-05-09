@@ -50,6 +50,8 @@ export type TargetTriple =
 type OutputType = "bin" | "shared" | "static"
 type OutputMode = "debug" | "fast" | "small"
 
+type NodeVersion = `${number}.${number}.${number}`
+
 type CStd =
   | "c89"
   | "gnu89"
@@ -76,7 +78,7 @@ type CppStd =
   | "gnu++2b"
 export type Std = CStd | CppStd
 
-type Glibc = `2.${number}`
+type Glibc = `2.${number}` | `2.${number}.${number}`
 
 interface BaseTarget {
   /** Target triple */
@@ -102,6 +104,13 @@ interface BaseTarget {
   libraries?: string[]
   /** Library search paths (-L flag) */
   librariesSearch?: string[]
+  /**
+   * Node headers version
+   *
+   * This is used to determine which Node headers to include.
+   * If not specified, the current Node version is used.
+   **/
+  nodeVersion?: NodeVersion
   /** Node-API version */
   napiVersion?: number
   /** Preprocessor defines (-D flag) */
@@ -271,9 +280,17 @@ export async function build(
   targets: Record<string, Target>,
   cwd?: string,
 ): Promise<void> {
-  const [node, zig, napi] = await fetchDeps()
+  const nodeVersions = new Set(Object.values(targets).map((t) => t.nodeVersion))
+  const [node, zig, napi] = await fetchDeps(nodeVersions)
   const tasks = Object.entries(targets).map(([name, target]) =>
-    buildOne(target, cwd ?? process.cwd(), node, zig, napi, makeLogger(name)),
+    buildOne(
+      target,
+      cwd ?? process.cwd(),
+      node.get(target.nodeVersion)!,
+      zig,
+      napi,
+      makeLogger(name),
+    ),
   )
   await Promise.all(tasks)
 }
