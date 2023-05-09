@@ -3,6 +3,7 @@
 Node.js native addon build and cross-compile library using Zig
 
 - [Usage](#usage)
+  - [Custom Node headers version](#custom-node-headers-version)
   - [Preprocessor defines](#preprocessor-defines)
   - [Linking libraries](#linking-libraries)
   - [Custom flags](#custom-flags)
@@ -63,6 +64,19 @@ await build({
     target: "aarch64-linux-gnu",
     output: "linux-arm64/addon.node",
     ...config,
+  },
+})
+```
+
+### Custom Node headers version
+
+```js
+await build({
+  addon: {
+    target: "x86_64-linux-gnu",
+    sources: ["addon.cc"],
+    output: "addon.node",
+    nodeVersion: "18.0.0",
   },
 })
 ```
