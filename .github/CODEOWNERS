@@ -1,1 +1,7 @@
 * @raphael-theriault-swi
+
+# as of Sept 2023, remove after GH EMU move (see below)
+* @solarwindscloud/eng-apm-instrumentation
+
+# placeholder for GH EMU where this will move to new org for public repos
+* @solarwinds/eng-apm-instrumentation
