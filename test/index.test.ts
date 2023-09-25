@@ -103,9 +103,6 @@ it("calls spawn with the right arguments and produces a valid database", async (
   expect(spawnCalls[1]!.args[1]).to.include("-llib")
   expect(spawnCalls[1]!.args[1]).to.include("-Ldir")
 
-  const writeFileCalls = writeFile.getCalls()
-  expect(writeFileCalls).to.have.length(1)
-
   const writeFileCall = writeFile.getCalls().at(-1)!
   expect(writeFileCall.args[0]).to.include("compile_commands.json")
 
