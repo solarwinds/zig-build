@@ -20,6 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import * as assert from "node:assert"
+import * as fs from "node:fs/promises"
+import * as path from "node:path"
 import * as process from "node:process"
 
 import { fetchDeps } from "./deps"
@@ -134,20 +137,37 @@ interface GnuTarget extends NixTarget {
   /** Version of glibc to link against */
   glibc?: Glibc
 }
-interface MacosTarget extends NixTarget {
-  target: MacosTargetTriple
-  /** Linked frameworks (-f flag) */
-  frameworks?: string[]
-  /** Frameworks search paths (-F flag) */
-  frameworksSearch?: string[]
-}
-export type Target = BaseTarget | NixTarget | GnuTarget | MacosTarget
+export type Target = BaseTarget | NixTarget | GnuTarget
+
+type CompilationDatabase = {
+  directory: string
+  file: string
+  output?: string
+} & ({ arguments: string[] } | { command: string })
 
 // turn an optional array or element into an array
 function a<T>(v: T | T[] | undefined): T[] {
   if (v === undefined) return []
   else if (Array.isArray(v)) return v
   else return [v]
+}
+
+// returns a function that pushes to all the provided arrays
+function push<T>(...as: T[][]): (...v: T[]) => void {
+  return (...v) => {
+    for (const a of as) {
+      a.push(...v)
+    }
+  }
+}
+
+function eq(l: unknown, r: unknown): boolean {
+  try {
+    assert.deepStrictEqual(l, r)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function buildOne(
@@ -157,18 +177,19 @@ function buildOne(
   zig: string,
   napi: string | null,
   log: Logger,
-) {
+): [task: Promise<number>, db: CompilationDatabase[]] {
   let triple = target.target
   if ("glibc" in target && target.glibc) {
     // zig reads the glibc version from the end of gnu triple after a dot
     triple += `.${target.glibc}`
   }
 
-  const lang = (target.std ?? "++").includes("++") ? "c++" : "cc"
+  const [lang, clang] =
+    target.std?.includes("++") ?? true ? ["c++", "clang++"] : ["cc", "clang"]
 
   // base flags for c/++ compilation, always the same
   // use baseline instruction set for the target by default
-  const flags: string[] = [
+  const flags = [
     lang,
     "-target",
     triple,
@@ -176,16 +197,17 @@ function buildOne(
     "-o",
     target.output,
   ]
+  const dbFlags = [clang]
 
   switch (target.type ?? "shared") {
     case "bin":
     case "static": {
-      flags.push("-static")
+      push(flags)("-static")
       break
     }
     case "shared": {
       // generate position independent code for shared objects
-      flags.push("-shared", "-fPIC")
+      push(flags)("-shared", "-fPIC")
       break
     }
   }
@@ -193,38 +215,38 @@ function buildOne(
   switch (target.mode ?? "fast") {
     // use -O3 for fast (-Ofast) is not standard compliant
     case "fast": {
-      flags.push("-O3")
+      push(flags)("-O3")
       break
     }
     // use -Oz for small
     case "small": {
-      flags.push("-Oz")
+      push(flags)("-Oz")
       break
     }
     case "debug":
   }
 
   if (target.std) {
-    flags.push(`-std=${target.std}`)
+    push(flags, dbFlags)(`-std=${target.std}`)
   }
   if (target.exceptions === false) {
-    flags.push("-fno-exceptions")
+    push(flags, dbFlags)("-fno-exceptions")
   }
 
-  flags.push(`-I${node}`)
+  push(flags, dbFlags)(`-I${node}`)
   if (napi) {
     // add node-addon-api include directory if it's in the dependency tree
-    flags.push(`-I${napi}`)
+    push(flags, dbFlags)(`-I${napi}`)
   }
   for (const i of a(target.include)) {
-    flags.push(`-I${i}`)
+    push(flags, dbFlags)(`-I${i}`)
   }
 
   for (const l of a(target.libraries)) {
-    flags.push(`-l${l}`)
+    push(flags)(`-l${l}`)
   }
   for (const l of a(target.librariesSearch)) {
-    flags.push(`-L${l}`)
+    push(flags)(`-L${l}`)
   }
 
   target.defines ??= {}
@@ -243,55 +265,82 @@ function buildOne(
   }
   for (const [n, v] of Object.entries(target.defines)) {
     if (v === true) {
-      flags.push(`-D${n}`)
+      push(flags, dbFlags)(`-D${n}`)
     } else if (typeof v === "string" || typeof v === "number") {
-      flags.push(`-D${n}=${v}`)
-    }
-  }
-
-  if ("frameworks" in target || "frameworksSearch" in target) {
-    for (const f of a(target.frameworks)) {
-      flags.push(`-${f}`)
-    }
-    for (const f of a(target.frameworksSearch)) {
-      flags.push(`-F${f}`)
+      push(flags, dbFlags)(`-D${n}=${v}`)
     }
   }
 
   if ("rpath" in target && target.rpath) {
     // specify rpaths as a linker flags
     for (const r of a(target.rpath)) {
-      flags.push(`-Wl,-rpath,${r}`)
+      push(flags)(`-Wl,-rpath,${r}`)
     }
   }
 
   if (target.verbose) {
-    flags.push("-v")
+    push(flags)("-v")
   }
 
-  flags.push(...a(target.cflags))
+  push(flags, dbFlags)(...a(target.cflags))
 
-  flags.push(...target.sources)
+  push(flags)(...target.sources)
 
-  return exec(zig, flags, { cwd, log })
+  const db = target.sources.map((source) => ({
+    directory: cwd,
+    arguments: dbFlags,
+    file: source,
+  }))
+
+  return [exec(zig, flags, { cwd, log }), db]
 }
 
+/**
+ * Builds a set of targets in parallel
+ *
+ * @param targets - Targets definitions
+ * @param cwd - Working directory to use for compiler invocations
+ * @param compilationDatabase - Location of an optionally generated Clang JSON compilation database (https://clang.llvm.org/docs/JSONCompilationDatabase.html)
+ */
 export async function build(
   targets: Record<string, Target>,
-  cwd?: string,
+  cwd: string = process.cwd(),
+  compilationDatabase: boolean | string = false,
 ): Promise<void> {
   const nodeVersions = new Set(Object.values(targets).map((t) => t.nodeVersion))
   const [node, zig, napi] = await fetchDeps(nodeVersions)
-  const tasks = Object.entries(targets).map(([name, target]) =>
-    buildOne(
-      target,
-      cwd ?? process.cwd(),
-      node.get(target.nodeVersion)!,
-      zig,
-      napi,
-      makeLogger(name),
-    ),
+  const [tasks, db] = Object.entries(targets).reduce<
+    [Promise<number>[], CompilationDatabase[]]
+  >(
+    ([tasks, db], [name, target]) => {
+      const [t, d] = buildOne(
+        target,
+        cwd,
+        node.get(target.nodeVersion)!,
+        zig,
+        napi,
+        makeLogger(name),
+      )
+      return [
+        [...tasks, t],
+        [...db, ...d],
+      ]
+    },
+    [[], []],
   )
+
   await Promise.all(tasks)
+
+  if (compilationDatabase) {
+    if (typeof compilationDatabase !== "string") {
+      compilationDatabase = "compile_commands.json"
+    }
+
+    const unique = db.filter((l, idx) => db.findIndex((r) => eq(l, r)) === idx)
+    await fs.writeFile(
+      path.join(cwd, compilationDatabase),
+      JSON.stringify(unique),
+    )
+  }
 }
 export default build

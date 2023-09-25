@@ -1,6 +1,7 @@
 const path = require("node:path")
 const fs = require("node:fs")
 
+const eslint = require("@eslint/js")
 const globals = require("globals")
 const prettier = require("eslint-config-prettier")
 const typescriptParser = require("@typescript-eslint/parser")
@@ -11,14 +12,9 @@ const headerPlugin = require("eslint-plugin-header")
 
 const license = fs.readFileSync(path.join(__dirname, "LICENSE"), "utf8")
 
-const mapRules = (rules, oldKey = "", newKey = "") =>
-  Object.fromEntries(
-    Object.entries(rules).map(([k, v]) => [k.replace(oldKey, newKey), v]),
-  )
-
 module.exports = [
   { ignores: ["dist/**"] },
-  "eslint:recommended",
+  eslint.configs.recommended,
   {
     files: ["**/*.js"],
     languageOptions: {
@@ -30,32 +26,19 @@ module.exports = [
     files: ["**/*.ts"],
     languageOptions: {
       parser: typescriptParser,
-      parserOptions: { project: ["./tsconfig.json"] },
+      parserOptions: { project: true },
     },
     plugins: {
-      ts: typescriptPlugin,
+      "@typescript-eslint": typescriptPlugin,
       tsdoc: tsdocPlugin,
       imports: importsPlugin,
     },
     rules: {
       ...typescriptPlugin.configs["eslint-recommended"].overrides[0].rules,
-      ...mapRules(
-        typescriptPlugin.configs["recommended"].rules,
-        "@typescript-eslint",
-        "ts",
-      ),
-      ...mapRules(
-        typescriptPlugin.configs["recommended-requiring-type-checking"].rules,
-        "@typescript-eslint",
-        "ts",
-      ),
-      ...mapRules(
-        typescriptPlugin.configs["strict"].rules,
-        "@typescript-eslint",
-        "ts",
-      ),
-      "ts/no-non-null-assertion": "off",
-      "ts/consistent-type-imports": [
+      ...typescriptPlugin.configs["strict-type-checked"].rules,
+      ...typescriptPlugin.configs["stylistic-type-checked"].rules,
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/consistent-type-imports": [
         "warn",
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
@@ -70,5 +53,5 @@ module.exports = [
       "header/header": ["error", "block", `\n${license.trim()}\n`],
     },
   },
-  { rules: prettier.rules },
+  prettier,
 ]

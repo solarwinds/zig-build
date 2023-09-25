@@ -35,7 +35,7 @@ export const exec = (
     stdin?: Readable
   },
 ) =>
-  new Promise((res, rej) => {
+  new Promise<number>((res, rej) => {
     options.log(`executing '${cmd} ${args.join(" ")}'`)
     const proc = cproc.spawn(cmd, args, {
       ...options,
@@ -65,6 +65,8 @@ export const exec = (
           options.log(line)
         }
       })
-      proc[stream].once("end", () => options.log(buffer.toString("utf8")))
+      proc[stream].once("end", () => {
+        options.log(buffer.toString("utf8"))
+      })
     }
   })
