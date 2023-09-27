@@ -10,7 +10,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: configure git
         run: |
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -18,12 +18,13 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: 18.x
+          node-version: 18
           registry-url: https://registry.npmjs.org
       - run: npm ci
 
-      - run: npm run lint
       - run: npm run build
+      - run: npm run lint
+      - run: npm run test
 
       - run: npm version ${{ inputs.version }}
       - run: git push origin main --follow-tags

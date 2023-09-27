@@ -30,7 +30,7 @@ export const COLOURS = [
   "yellow",
   "green",
 ] as const
-export type Colour = typeof COLOURS[number]
+export type Colour = (typeof COLOURS)[number]
 
 export type Logger = (message: string) => void
 

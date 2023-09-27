@@ -1,7 +1,9 @@
 {
+  "include": ["src"],
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
+    "composite": true,
     "declaration": true,
 
     "target": "es2020",
