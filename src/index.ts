@@ -286,13 +286,15 @@ function buildOne(
 
   push(flags)(...target.sources)
 
+  const task = exec(zig, flags, { cwd, log })
+  // create a compilation database entry for each source file
   const db = target.sources.map((source) => ({
     directory: cwd,
     arguments: dbFlags,
     file: source,
   }))
 
-  return [exec(zig, flags, { cwd, log }), db]
+  return [task, db]
 }
 
 /**
@@ -309,11 +311,14 @@ export async function build(
 ): Promise<void> {
   const nodeVersions = new Set(Object.values(targets).map((t) => t.nodeVersion))
   const [node, zig, napi] = await fetchDeps(nodeVersions)
+
+  // for each target merge the task into an array of tasks and
+  // the partial compilation database into the complete one
   const [tasks, db] = Object.entries(targets).reduce<
     [Promise<number>[], CompilationDatabase[]]
   >(
     ([tasks, db], [name, target]) => {
-      const [t, d] = buildOne(
+      const [task, partialDb] = buildOne(
         target,
         cwd,
         node.get(target.nodeVersion)!,
@@ -321,9 +326,10 @@ export async function build(
         napi,
         makeLogger(name),
       )
+
       return [
-        [...tasks, t],
-        [...db, ...d],
+        [...tasks, task],
+        [...db, ...partialDb],
       ]
     },
     [[], []],
@@ -336,6 +342,7 @@ export async function build(
       compilationDatabase = "compile_commands.json"
     }
 
+    // don't keep duplicate entries in the compilation database
     const unique = db.filter((l, idx) => db.findIndex((r) => eq(l, r)) === idx)
     await fs.writeFile(
       path.join(cwd, compilationDatabase),
