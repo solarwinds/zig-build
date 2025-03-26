@@ -29,7 +29,7 @@ import * as path from "node:path"
 import { type Logger, makeLogger } from "./log"
 import { exec } from "./proc"
 
-const ZIG_VERSION = "0.10.1"
+const ZIG_VERSION = "0.14.0"
 const ZIGS: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> =
   {
     linux: {
