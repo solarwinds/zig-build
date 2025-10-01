@@ -1,4 +1,1 @@
-* @raphael-theriault-swi @solarwindscloud/eng-apm-instrumentation
-
-# placeholder for GH EMU where this will move to new org for public repos
-# * @solarwinds/eng-pub-apm-instrumentation
+* @solarwinds/eng-pub-apm-instrumentation @solarwinds/con-pub-apm-instrumentation
