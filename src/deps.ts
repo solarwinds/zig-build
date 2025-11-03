@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import { execFile } from "node:child_process"
 import fs from "node:fs/promises"
 import type { IncomingMessage } from "node:http"
 import http from "node:https"
@@ -68,6 +69,13 @@ const exists = (path: string) =>
 		.then(() => true)
 		.catch(() => false)
 
+const which = (bin: string, ...args: string[]) =>
+	new Promise<boolean>((res) =>
+		execFile(bin, args, (err) => {
+			res(!err)
+		}),
+	)
+
 export async function fetchZig(): Promise<string> {
 	// 214 is an orange ansii256 colour code
 	const log = makeLogger("zig", 214)
@@ -80,6 +88,11 @@ export async function fetchZig(): Promise<string> {
 	log(`checking for zig at '${binaryPath}'`)
 	if (await exists(binaryPath)) {
 		return binaryPath
+	}
+
+	log("checking for zig in PATH")
+	if (await which("zig", "version")) {
+		return "zig"
 	}
 
 	const url = ZIGS[platform]?.[arch]
