@@ -23,3 +23,9 @@ SOFTWARE.
 declare module "node-addon-api" {
 	export const include: string
 }
+
+declare module "node-api-headers" {
+	export const def_paths: {
+		node_api_def: string
+	}
+}

@@ -25,6 +25,8 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import process from "node:process"
 
+import headers from "node-api-headers"
+
 import { fetchDeps } from "./deps.ts"
 import { type Logger, makeLogger } from "./log.ts"
 import { exec } from "./proc.ts"
@@ -175,6 +177,8 @@ function buildOne(
 	napi: string | null,
 	log: Logger,
 ): [task: Promise<number>, db: CompilationDatabase[]] {
+	let task = Promise.resolve(0)
+
 	let triple = target.target
 	if (triple && "glibc" in target && target.glibc) {
 		// zig reads the glibc version from the end of gnu triple after a dot
@@ -200,8 +204,53 @@ function buildOne(
 			flags.push("-static")
 			break
 		}
+
 		case "shared": {
-			flags.push("-shared", "-Wl,-undefined,dynamic_lookup")
+			flags.push("-shared")
+
+			if (triple?.includes("windows") || (!triple && process.platform === "win32")) {
+				const def = headers.def_paths.node_api_def
+				const lib = path.join(node, "node.lib")
+				const flags = ["dlltool", "-d", def, "-l", lib]
+
+				if (triple) {
+					let machine: string
+					const parts = triple.split("-")
+
+					switch (parts[0]!) {
+						case "x86_64": {
+							machine = "i386:x86-64"
+							break
+						}
+
+						case "aarch64": {
+							machine = "arm64"
+							break
+						}
+
+						case "x86":
+						case "i386":
+						case "i486":
+						case "i586":
+						case "i686": {
+							machine = "i386"
+							break
+						}
+
+						default: {
+							throw new Error("Unsupported Windows target")
+						}
+					}
+
+					flags.push("-m", machine!)
+				}
+
+				task = task.then(() => exec(zig, flags, { log }))
+				target.sources.push(lib)
+			} else if (triple?.includes("macos") || (!triple && process.platform === "darwin")) {
+				flags.push("-Wl,-undefined,dynamic_lookup")
+			}
+
 			break
 		}
 	}
@@ -289,7 +338,7 @@ function buildOne(
 	flags.push(...a(target.cflags))
 	flags.push(...target.sources)
 
-	const task = exec(zig, flags, { cwd, log })
+	task = task.then(() => exec(zig, flags, { cwd, log }))
 	// create a compilation database entry for each source file
 	const db = target.sources.map((source) => ({
 		directory: cwd,
