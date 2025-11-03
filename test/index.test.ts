@@ -48,7 +48,7 @@ await test("zig-build", async (t) => {
 			"-shared",
 			"-O2",
 		])
-		t.assert.equal(cc[0].arguments.at(-2)?.endsWith("include/node"), true)
+		t.assert.equal(cc[0].arguments.at(-2)?.endsWith("node-api-headers/include"), true)
 		t.assert.equal(cc[0].arguments.at(-1)?.endsWith("node-addon-api"), true)
 	}
 })
