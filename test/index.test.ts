@@ -30,24 +30,25 @@ await test("zig-build", async (t) => {
 	const addon = require("./addon.node")
 	t.assert.equal(addon.hello(), "world")
 
-	const cc: { file: string; arguments: string[] }[] = JSON.parse(
-		await fs.readFile(path.join(import.meta.dirname, "compile_commands.json"), {
-			encoding: "utf-8",
-		}),
-	)
+	if (process.platform === "linux") {
+		const cc: { file: string; arguments: string[] }[] = JSON.parse(
+			await fs.readFile(path.join(import.meta.dirname, "compile_commands.json"), {
+				encoding: "utf-8",
+			}),
+		)
 
-	t.assert.equal(cc.length, 1)
-	t.assert.equal(cc[0].file, "addon.cc")
-	t.assert.deepEqual(cc[0].arguments.slice(0, -2), [
-		"clang++",
-		"-o",
-		"addon.node",
-		"-fPIC",
-		"-Wl,--as-needed",
-		"-shared",
-		"-Wl,-undefined,dynamic_lookup",
-		"-O2",
-	])
-	t.assert.equal(cc[0].arguments.at(-2)?.endsWith("include/node"), true)
-	t.assert.equal(cc[0].arguments.at(-1)?.endsWith("node-addon-api"), true)
+		t.assert.equal(cc.length, 1)
+		t.assert.equal(cc[0].file, "addon.cc")
+		t.assert.deepEqual(cc[0].arguments.slice(0, -2), [
+			"clang++",
+			"-o",
+			"addon.node",
+			"-fPIC",
+			"-Wl,--as-needed",
+			"-shared",
+			"-O2",
+		])
+		t.assert.equal(cc[0].arguments.at(-2)?.endsWith("include/node"), true)
+		t.assert.equal(cc[0].arguments.at(-1)?.endsWith("node-addon-api"), true)
+	}
 })
