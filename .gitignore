@@ -1,3 +1,5 @@
-.vscode/
 node_modules/
 dist/
+.cache/
+*.node
+compile_commands.json

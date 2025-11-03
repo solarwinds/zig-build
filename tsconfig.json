@@ -1,18 +1,22 @@
 {
-  "include": ["src"],
-  "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "composite": true,
-    "declaration": true,
+	"extends": "@tsconfig/node20/tsconfig.json",
+	"include": ["./src/", "./lib.d.ts"],
+	"compilerOptions": {
+		"rootDir": "./src",
+		"outDir": "./dist",
+		"declaration": true,
+		"sourceMap": true,
+		"declarationMap": true,
 
-    "target": "es2020",
-    "module": "commonjs",
-    "esModuleInterop": true,
+		"module": "node16",
+		"moduleResolution": "node16",
+		"allowImportingTsExtensions": true,
+		"rewriteRelativeImportExtensions": true,
 
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "strict": true,
-    "noUncheckedIndexedAccess": true
-  }
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+
+		"allowJs": true,
+		"checkJs": true
+	}
 }
