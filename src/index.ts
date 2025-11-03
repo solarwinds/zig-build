@@ -48,8 +48,6 @@ export type TargetTriple =
 type OutputType = "bin" | "shared" | "static"
 type OutputMode = "debug" | "fast" | "small"
 
-type NodeVersion = `${number}.${number}.${number}`
-
 type CStd =
 	| "c89"
 	| "gnu89"
@@ -108,13 +106,6 @@ interface BaseTarget {
 	libraries?: string[]
 	/** Library search paths (-L flag) */
 	librariesSearch?: string[]
-	/**
-	 * Node headers version
-	 *
-	 * This is used to determine which Node headers to include.
-	 * If not specified, the current Node version is used.
-	 **/
-	nodeVersion?: NodeVersion
 	/** Node-API version */
 	napiVersion?: number
 	/** Preprocessor defines (-D flag) */
@@ -360,8 +351,7 @@ export async function build(
 	targets: Record<string, Target>,
 	{ cwd = process.cwd(), compilationDatabase = false }: Options,
 ): Promise<void> {
-	const nodeVersions = new Set(Object.values(targets).map((t) => t.nodeVersion))
-	const [node, zig, napi] = await fetchDeps(nodeVersions)
+	const [node, zig, napi] = await fetchDeps()
 
 	// for each target merge the task into an array of tasks and
 	// the partial compilation database into the complete one
@@ -369,14 +359,7 @@ export async function build(
 		[Promise<number>[], CompilationDatabase[]]
 	>(
 		([tasks, db], [name, target]) => {
-			const [task, partialDb] = buildOne(
-				target,
-				cwd,
-				node.get(target.nodeVersion)!,
-				zig,
-				napi,
-				makeLogger(name),
-			)
+			const [task, partialDb] = buildOne(target, cwd, node, zig, napi, makeLogger(name))
 
 			return [
 				[...tasks, task],

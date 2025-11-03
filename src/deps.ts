@@ -26,6 +26,8 @@ import http from "node:https"
 import os from "node:os"
 import path from "node:path"
 
+import headers from "node-api-headers"
+
 import { type Logger, makeLogger } from "./log.ts"
 import { exec } from "./proc.ts"
 
@@ -46,7 +48,6 @@ const ZIGS: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> = 
 }
 
 const DOWNLOAD_DIR = path.join(os.homedir(), ".zig-build")
-const NODE_DIR = path.join(DOWNLOAD_DIR, "node")
 const ZIG_DIR = path.join(DOWNLOAD_DIR, "zig", ZIG_VERSION)
 
 const get = (url: string, options: http.RequestOptions & { log: Logger }) =>
@@ -67,33 +68,7 @@ const exists = (path: string) =>
 		.then(() => true)
 		.catch(() => false)
 
-async function fetchNodeHeaders(version?: string) {
-	// 40 is a green ansii256 colour code
-	const log = makeLogger("node", 40)
-
-	version ??= process.versions.node
-	const vversion = `v${version}`
-
-	const headersDir = path.join(NODE_DIR, vversion)
-	const includePath = path.join(headersDir, "include", "node")
-	log(`checking for node headers at '${includePath}'`)
-	if (await exists(includePath)) {
-		return includePath
-	}
-
-	const headersUrl = `https://nodejs.org/download/release/${vversion}/node-${vversion}-headers.tar.gz`
-	const headersArchive = await get(headersUrl, { log })
-	await fs.mkdir(headersDir, { recursive: true })
-	// windows 10 provides bsdtar which should ignore the z flag if a zip is passed
-	await exec("tar", ["-xzf", "-", "--strip-components=1", "-C", headersDir], {
-		stdin: headersArchive,
-		log,
-	})
-
-	return includePath
-}
-
-export async function fetchZig() {
+export async function fetchZig(): Promise<string> {
 	// 214 is an orange ansii256 colour code
 	const log = makeLogger("zig", 214)
 
@@ -123,19 +98,13 @@ export async function fetchZig() {
 	return binaryPath
 }
 
-export async function fetchDeps(
-	nodeVersions: Set<string | undefined>,
-): Promise<[node: Map<string | undefined, string>, zig: string, napi: string | null]> {
-	const node = new Map(
-		await Promise.all(
-			[...nodeVersions].map(async (v) => [v, await fetchNodeHeaders(v)] as const),
-		),
-	)
+export async function fetchDeps(): Promise<[node: string, zig: string, napi: string | null]> {
+	const node = headers.include_dir
 	const zig = await fetchZig()
 	// if node-addon-api is in the dependency tree grab its include path
 	// and strip the surrounding quotes
 	const napi = await import("node-addon-api")
-		.then((napi) => napi.default.include.slice(1, -1))
+		.then((napi) => path.resolve(napi.default.include_dir))
 		.catch(() => null)
 	return [node, zig, napi]
 }
