@@ -1,5 +1,5 @@
 /*
-© 2023 SolarWinds Worldwide, LLC. All rights reserved.
+© SolarWinds Worldwide, LLC. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -20,127 +20,104 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-import * as fs from "node:fs/promises"
-import { type IncomingMessage } from "node:http"
-import * as http from "node:https"
-import * as os from "node:os"
-import * as path from "node:path"
+import { execFile } from "node:child_process"
+import fs from "node:fs/promises"
+import type { IncomingMessage } from "node:http"
+import http from "node:https"
+import os from "node:os"
+import path from "node:path"
 
-import { type Logger, makeLogger } from "./log"
-import { exec } from "./proc"
+import headers from "node-api-headers"
 
-const ZIG_VERSION = "0.10.1"
-const ZIGS: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> =
-  {
-    linux: {
-      x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz`,
-      arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-linux-aarch64-${ZIG_VERSION}.tar.xz`,
-    },
-    darwin: {
-      x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-macos-x86_64-${ZIG_VERSION}.tar.xz`,
-      arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-macos-aarch64-${ZIG_VERSION}.tar.xz`,
-    },
-    win32: {
-      x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-windows-x86_64-${ZIG_VERSION}.zip`,
-      arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-windows-aarch64-${ZIG_VERSION}.zip`,
-    },
-  }
+import { type Logger, makeLogger } from "./log.ts"
+import { exec } from "./proc.ts"
+
+const ZIG_VERSION = "0.15.1"
+const ZIGS: Partial<Record<NodeJS.Platform, Partial<Record<string, string>>>> = {
+	linux: {
+		x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz`,
+		arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-aarch64-linux-${ZIG_VERSION}.tar.xz`,
+	},
+	darwin: {
+		x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-macos-${ZIG_VERSION}.tar.xz`,
+		arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-aarch64-macos-${ZIG_VERSION}.tar.xz`,
+	},
+	win32: {
+		x64: `https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-windows-${ZIG_VERSION}.zip`,
+		arm64: `https://ziglang.org/download/${ZIG_VERSION}/zig-aarch64-windows-${ZIG_VERSION}.zip`,
+	},
+}
 
 const DOWNLOAD_DIR = path.join(os.homedir(), ".zig-build")
-const NODE_DIR = path.join(DOWNLOAD_DIR, "node")
 const ZIG_DIR = path.join(DOWNLOAD_DIR, "zig", ZIG_VERSION)
 
 const get = (url: string, options: http.RequestOptions & { log: Logger }) =>
-  new Promise<IncomingMessage>((res, rej) => {
-    options.log(`fetching '${url}'`)
-    http.get(url, options, (resp) => {
-      if (!resp.statusCode || resp.statusCode < 200 || resp.statusCode >= 300) {
-        rej(resp)
-      } else {
-        res(resp)
-      }
-    })
-  })
+	new Promise<IncomingMessage>((res, rej) => {
+		options.log(`fetching '${url}'`)
+		http.get(url, options, (resp) => {
+			if (!resp.statusCode || resp.statusCode < 200 || resp.statusCode >= 300) {
+				rej(resp)
+			} else {
+				res(resp)
+			}
+		})
+	})
 
 const exists = (path: string) =>
-  fs
-    .stat(path)
-    .then(() => true)
-    .catch(() => false)
+	fs
+		.stat(path)
+		.then(() => true)
+		.catch(() => false)
 
-async function fetchNodeHeaders(version?: string) {
-  // 40 is a green ansii256 colour code
-  const log = makeLogger("node", 40)
+const which = (bin: string, ...args: string[]) =>
+	new Promise<boolean>((res) =>
+		execFile(bin, args, (err) => {
+			res(!err)
+		}),
+	)
 
-  version ??= process.versions.node
-  const vversion = `v${version}`
+export async function fetchZig(): Promise<string> {
+	// 214 is an orange ansii256 colour code
+	const log = makeLogger("zig", 214)
 
-  const headersDir = path.join(NODE_DIR, vversion)
-  const includePath = path.join(headersDir, "include", "node")
-  log(`checking for node headers at '${includePath}'`)
-  if (await exists(includePath)) {
-    return includePath
-  }
+	const platform = os.platform()
+	const arch = os.arch()
 
-  const headersUrl = `https://nodejs.org/download/release/${vversion}/node-${vversion}-headers.tar.gz`
-  const headersArchive = await get(headersUrl, { log })
-  await fs.mkdir(headersDir, { recursive: true })
-  // windows 10 provides bsdtar which should ignore the z flag if a zip is passed
-  await exec("tar", ["-xzf", "-", "--strip-components=1", "-C", headersDir], {
-    stdin: headersArchive,
-    log,
-  })
+	const binary = platform === "win32" ? "zig.exe" : "zig"
+	const binaryPath = path.join(ZIG_DIR, binary)
+	log(`checking for zig at '${binaryPath}'`)
+	if (await exists(binaryPath)) {
+		return binaryPath
+	}
 
-  return includePath
+	log("checking for zig in PATH")
+	if (await which("zig", "version")) {
+		return "zig"
+	}
+
+	const url = ZIGS[platform]?.[arch]
+	if (!url) {
+		throw new Error(`unsupported platform ${platform} ${arch}`)
+	}
+
+	const zigArchive = await get(url, { log })
+	await fs.mkdir(ZIG_DIR, { recursive: true })
+	// windows 10 provides bsdtar which should ignore the J flag if a zip is passed
+	await exec("tar", ["-xJf", "-", "--strip-components=1", "-C", ZIG_DIR], {
+		stdin: zigArchive,
+		log,
+	})
+
+	return binaryPath
 }
 
-async function fetchZig() {
-  // 214 is an orange ansii256 colour code
-  const log = makeLogger("zig", 214)
-
-  const platform = os.platform()
-  const arch = os.arch()
-
-  const binary = platform === "win32" ? "zig.exe" : "zig"
-  const binaryPath = path.join(ZIG_DIR, binary)
-  log(`checking for zig at '${binaryPath}'`)
-  if (await exists(binaryPath)) {
-    return binaryPath
-  }
-
-  const url = ZIGS[platform]?.[arch]
-  if (!url) {
-    throw new Error(`unsupported platform ${platform} ${arch}`)
-  }
-
-  const zigArchive = await get(url, { log })
-  await fs.mkdir(ZIG_DIR, { recursive: true })
-  // windows 10 provides bsdtar which should ignore the J flag if a zip is passed
-  await exec("tar", ["-xJf", "-", "--strip-components=1", "-C", ZIG_DIR], {
-    stdin: zigArchive,
-    log,
-  })
-
-  return binaryPath
-}
-
-export async function fetchDeps(
-  nodeVersions: Set<string | undefined>,
-): Promise<
-  [node: Map<string | undefined, string>, zig: string, napi: string | null]
-> {
-  const node = new Map(
-    await Promise.all(
-      [...nodeVersions].map(
-        async (v) => [v, await fetchNodeHeaders(v)] as const,
-      ),
-    ),
-  )
-  const zig = await fetchZig()
-  // if node-addon-api is in the dependency tree grab its include path
-  // and strip the surrounding quotes
-  const napi = await import("node-addon-api")
-    .then((napi) => napi.include.slice(1, -1))
-    .catch(() => null)
-  return [node, zig, napi]
+export async function fetchDeps(): Promise<[node: string, zig: string, napi: string | null]> {
+	const node = headers.include_dir
+	const zig = await fetchZig()
+	// if node-addon-api is in the dependency tree grab its include path
+	// and strip the surrounding quotes
+	const napi = await import("node-addon-api")
+		.then((napi) => path.resolve(napi.default.include_dir))
+		.catch(() => null)
+	return [node, zig, napi]
 }

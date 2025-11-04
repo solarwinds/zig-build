@@ -1,5 +1,5 @@
 /*
-© 2023 SolarWinds Worldwide, LLC. All rights reserved.
+© SolarWinds Worldwide, LLC. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -21,5 +21,12 @@ SOFTWARE.
 */
 
 declare module "node-addon-api" {
-  export const include: string
+	export const include_dir: string
+}
+
+declare module "node-api-headers" {
+	export const include_dir: string
+	export const def_paths: {
+		node_api_def: string
+	}
 }

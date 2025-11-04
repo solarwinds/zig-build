@@ -7,6 +7,7 @@ Node.js native addon build and cross-compile library using Zig
   - [Preprocessor defines](#preprocessor-defines)
   - [Linking libraries](#linking-libraries)
   - [Custom flags](#custom-flags)
+  - [Compilation database](#compilation-database)
   - [Custom glibc version](#custom-glibc-version)
 - [Caveats](#caveats)
 - [Contributing](#contributing)
@@ -30,41 +31,35 @@ Unlike `node-gyp`, `zig-build` is provided as a library and not a CLI. You will 
 Many options are available, for a full reference see [`index.ts`](./src/index.ts).
 
 ```sh
-# using npm
 npm install --save-dev zig-build
 # optional
 npm install --save-dev node-addon-api
-
-# using yarn
-yarn add --dev zig-build
-# optional
-yarn add --dev node-addon-api
 ```
 
 ```js
 import { build } from "zig-build"
 
 const config = {
-  sources: ["addon.cc", "util.cc"],
-  std: "c++17",
+	sources: ["addon.cc", "util.cc"],
+	std: "c++17",
 }
 
 await build({
-  windows: {
-    target: "x86_64-windows",
-    output: "windows/addon.node",
-    ...config,
-  },
-  "linux-x64": {
-    target: "x86_64-linux-gnu",
-    output: "linux-x64/addon.node",
-    ...config,
-  },
-  "linux-arm64": {
-    target: "aarch64-linux-gnu",
-    output: "linux-arm64/addon.node",
-    ...config,
-  },
+	windows: {
+		target: "x86_64-windows",
+		output: "windows/addon.node",
+		...config,
+	},
+	"linux-x64": {
+		target: "x86_64-linux-gnu",
+		output: "linux-x64/addon.node",
+		...config,
+	},
+	"linux-arm64": {
+		target: "aarch64-linux-gnu",
+		output: "linux-arm64/addon.node",
+		...config,
+	},
 })
 ```
 
@@ -72,12 +67,12 @@ await build({
 
 ```js
 await build({
-  addon: {
-    target: "x86_64-linux-gnu",
-    sources: ["addon.cc"],
-    output: "addon.node",
-    nodeVersion: "18.0.0",
-  },
+	addon: {
+		target: "x86_64-linux-gnu",
+		sources: ["addon.cc"],
+		output: "addon.node",
+		nodeVersion: "18.0.0",
+	},
 })
 ```
 
@@ -85,16 +80,16 @@ await build({
 
 ```js
 await build({
-  addon: {
-    target: "x86_64-linux-gnu",
-    sources: ["addon.cc"],
-    output: "addon.node",
-    defines: {
-      TARGET_NODE: true, // -DTARGET_NODE
-      ADDON_VERSION: "1.2.3", // -DADDON_VERSION=1.2.3
-      ADDON_REV: 4, // -DADDON_REV=4
-    },
-  },
+	addon: {
+		target: "x86_64-linux-gnu",
+		sources: ["addon.cc"],
+		output: "addon.node",
+		defines: {
+			TARGET_NODE: true, // -DTARGET_NODE
+			ADDON_VERSION: "1.2.3", // -DADDON_VERSION=1.2.3
+			ADDON_REV: 4, // -DADDON_REV=4
+		},
+	},
 })
 ```
 
@@ -102,14 +97,14 @@ await build({
 
 ```js
 await build({
-  addon: {
-    target: "x86_64-linux-gnu",
-    sources: ["addon.cc"],
-    output: "addon.node",
-    libraries: ["z", "private"], // -lz -lprivate
-    librariesSearch: ["libprivate-vendored"], // -Llibprivate-vendored
-    rpath: "$ORIGIN", // -Wl,-rpath,$ORIGIN
-  },
+	addon: {
+		target: "x86_64-linux-gnu",
+		sources: ["addon.cc"],
+		output: "addon.node",
+		libraries: ["z", "private"], // -lz -lprivate
+		librariesSearch: ["libprivate-vendored"], // -Llibprivate-vendored
+		rpath: "$ORIGIN", // -Wl,-rpath,$ORIGIN
+	},
 })
 ```
 
@@ -117,13 +112,32 @@ await build({
 
 ```js
 await build({
-  addon: {
-    target: "x86_64-linux-gnu",
-    sources: ["addon.cc"],
-    output: "addon.node",
-    cflags: ["-Wl,-soname,napiaddon"],
-  },
+	addon: {
+		target: "x86_64-linux-gnu",
+		sources: ["addon.cc"],
+		output: "addon.node",
+		cflags: ["-Wl,-soname,napiaddon"],
+	},
 })
+```
+
+### Compilation database
+
+`zig-build` can automatically generate a [Clang JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html) for tools like `clangd` that depend on it.
+
+```js
+await build(
+	{
+		addon: {
+			target: "x86_64-linux-gnu",
+			sources: ["addon.cc"],
+			output: "addon.node",
+		},
+	},
+	{
+		compilationDatabase: "compile_commands.json",
+	},
+)
 ```
 
 ### Custom glibc version
@@ -132,12 +146,12 @@ Thanks to Zig, Linux `gnu` targets support specifying a custom glibc version, wh
 
 ```js
 await build({
-  addon: {
-    target: "x86_64-linux-gnu",
-    glibc: "2.17",
-    sources: ["addon.cc"],
-    output: "addon.node",
-  },
+	addon: {
+		target: "x86_64-linux-gnu",
+		glibc: "2.17",
+		sources: ["addon.cc"],
+		output: "addon.node",
+	},
 })
 ```
 
